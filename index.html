@@ -1,0 +1,586 @@
+
+
+Add a workflow to the internal tool "Speed" to integrate with TeamOps. When a candidate applies via the website, they should be automatically added to the TeamOps talent pool. Once added, please ensure the candidate profile includes specific stages for tracking.
+
+I'd love to help you design this workflow, but I need a bit more context about your specific setup to give you the most accurate guidance.
+
+Could you clarify a few things:
+
+What is "Speed"? Is this an internal tool you've built (e.g., part of Jai), a no-code platform, or something else?
+
+What is "TeamOps"? Is this a specific HR/ATS tool, or an internal module within your ERP platform?
+
+What are the specific stages you want for candidate profile tracking (e.g., Applied → Screening → Interview → Offer → Hired)?
+
+How does the website form submit data? Via a webhook, API, or a form builder like Typeform/Webflow?
+
+That said, based on your stack (Make.com, TypeScript, API-first workflows), here's a general workflow architecture I can detail further once you confirm the tools:
+
+Proposed Workflow Architecture
+Trigger: Candidate Applies via Website
+Website form submission fires a webhook (POST request) with candidate data (name, email, role, CV link, etc.)
+
+Step 1: Validate & Normalize Data
+Parse the incoming payload in Speed
+
+Deduplicate check (email already in pool?)
+
+Step 2: Create Candidate in TeamOps
+Call TeamOps API → POST /talent-pool/candidates
+
+Map fields: name, email, position applied, source = "website"
+
+Step 3: Set Candidate Stages
+Attach a stage pipeline to the new profile. Recommended stages:
+
+Stage	Description
+Applied	Auto-set on creation
+Screening	HR reviews application
+Interview Scheduled	Call/meeting booked
+Assessment	Skills test sent
+Offer Extended	Offer letter stage
+Hired / Rejected	Final disposition
+Step 4: Trigger Notifications
+Notify hiring manager in Slack/email
+
+Send confirmation email to candidate
+
+Once you confirm the specifics of Speed and TeamOps (especially whether they expose REST APIs or use a platform like Make.com), I can provide exact implementation code or automation config for this workflow.
+
+Prepared using Claude Sonnet 4.6
+**Recruitment Workflow:**
+
+1. **Application:** Candidate applies via j.cx/jobs and is added to Teamops in the "Applied" stage.
+2. **Screening:**
+* If not a fit: Send "Not Fit" rejection email.
+* If a fit: Send calendar invite for an interview.
+3. **Interview Stage:**
+* Conduct multiple interviews/calls.
+* Record interviews and perform an overall assessment.
+* If not a fit: Send "Not Fit" rejection email.
+* If a fit: Generate and send an offer letter directly via Teamops.
+4. **Hired/Onboarding:**
+* Once the offer letter is signed, update the candidate status to "Hired."
+* Initiate onboarding: Create company email address and provide credentials for the Speed account.
+
+give me the workflow chart
+Completed 3 steps
+recruitment-workflow
+
+
+Currently open
+Here's your interactive recruitment workflow chart — built as a clean, dark/light mode HTML file you can open directly in any browser or embed in your internal docs.
+
+What's in the chart
+The workflow is organized into 4 phases, each visually separated with a clear flow from top to bottom:
+
+Phase	Key Actions
+Phase	Key Actions
+Application	Webhook from j.cx/jobs → TeamOps profile created, stage set to Applied
+Screening	HR reviews → forks to Rejection email or Calendar invite
+Interview	Multi-round interviews + recordings → forks to Rejection or Offer letter via TeamOps
+Hired / Onboarding	Signed offer → status Hired → company email + Speed credentials provisioned
+Design details
+Decision forks at Screening and Interview are clearly labeled ✕ Not a Fit / ✓ Good Fit
+
+Stage chips (e.g., Stage: Applied, Stage: Offer Extended) are shown inline on each TeamOps node so the pipeline stages are always visible
+
+Dark/light mode toggle in the top-right corner
+
+Scroll-driven fade-in animations on each node as you scroll
+
+Fully mobile-responsive — forks collapse to stacked cards on small screens
+
+Prepared using Claude Sonnet 4.6
+recruitment-workflow
+
+View
+
+Code
+
+Edit
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recruitment Workflow — Speed × TeamOps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root,[data-theme="light"]{
+  --color-bg:#f7f6f2;--color-surface:#f9f8f5;--color-surface-2:#fbfbf9;
+  --color-surface-offset:#f3f0ec;--color-surface-dynamic:#e6e4df;
+  --color-divider:#dcd9d5;--color-border:#d4d1ca;
+  --color-text:#28251d;--color-text-muted:#7a7974;--color-text-faint:#bab9b4;
+  --color-primary:#01696f;--color-primary-hover:#0c4e54;
+  --color-primary-highlight:#cedcd8;
+  --color-success:#437a22;--color-success-highlight:#d4dfcc;
+  --color-error:#a12c7b;--color-error-highlight:#e0ced7;
+  --color-warning:#964219;--color-warning-highlight:#ddcfc6;
+  --color-gold:#d19900;--color-gold-highlight:#e9e0c6;
+  --color-blue:#006494;--color-blue-highlight:#c6d8e4;
+  --color-orange:#da7101;--color-orange-highlight:#e7d7c4;
+  --shadow-sm:0 1px 2px oklch(0.2 0.01 80/.06);
+  --shadow-md:0 4px 12px oklch(0.2 0.01 80/.08);
+  --shadow-lg:0 12px 32px oklch(0.2 0.01 80/.12);
+  --radius-sm:0.375rem;--radius-md:0.5rem;--radius-lg:0.75rem;--radius-xl:1rem;
+  --space-1:.25rem;--space-2:.5rem;--space-3:.75rem;--space-4:1rem;
+  --space-5:1.25rem;--space-6:1.5rem;--space-8:2rem;--space-10:2.5rem;--space-12:3rem;
+  --text-xs:clamp(.75rem,.7rem + .25vw,.875rem);
+  --text-sm:clamp(.875rem,.8rem + .35vw,1rem);
+  --text-base:clamp(1rem,.95rem + .25vw,1.125rem);
+  --text-lg:clamp(1.125rem,1rem + .75vw,1.5rem);
+  --text-xl:clamp(1.5rem,1.2rem + 1.25vw,2.25rem);
+  --font-body:'Inter',sans-serif;
+  --font-display:'Instrument Serif',Georgia,serif;
+  --transition-interactive:180ms cubic-bezier(0.16,1,0.3,1);
+}
+[data-theme="dark"]{
+  --color-bg:#171614;--color-surface:#1c1b19;--color-surface-2:#201f1d;
+  --color-surface-offset:#1d1c1a;--color-surface-dynamic:#2d2c2a;
+  --color-divider:#262523;--color-border:#393836;
+  --color-text:#cdccca;--color-text-muted:#797876;--color-text-faint:#5a5957;
+  --color-primary:#4f98a3;--color-primary-hover:#227f8b;
+  --color-primary-highlight:#313b3b;
+  --color-success:#6daa45;--color-success-highlight:#3a4435;
+  --color-error:#d163a7;--color-error-highlight:#4c3d46;
+  --color-warning:#bb653b;--color-warning-highlight:#564942;
+  --color-gold:#e8af34;--color-gold-highlight:#4d4332;
+  --color-blue:#5591c7;--color-blue-highlight:#3a4550;
+  --color-orange:#fdab43;--color-orange-highlight:#564b3e;
+  --shadow-sm:0 1px 2px oklch(0 0 0/.2);
+  --shadow-md:0 4px 12px oklch(0 0 0/.3);
+  --shadow-lg:0 12px 32px oklch(0 0 0/.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
+body{min-height:100dvh;font-family:var(--font-body);font-size:var(--text-base);
+  color:var(--color-text);background:var(--color-bg);line-height:1.6;
+  transition:background var(--transition-interactive),color var(--transition-interactive)}
+
+/* ── HEADER ── */
+.header{
+  position:sticky;top:0;z-index:100;
+  background:color-mix(in oklch,var(--color-bg) 85%,transparent);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--color-border);
+  padding:var(--space-4) var(--space-8);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.logo{display:flex;align-items:center;gap:var(--space-3)}
+.logo svg{width:32px;height:32px}
+.logo-text{font-size:var(--text-sm);font-weight:600;color:var(--color-text)}
+.logo-sub{font-size:var(--text-xs);color:var(--color-text-muted)}
+.header-actions{display:flex;align-items:center;gap:var(--space-3)}
+.badge{font-size:var(--text-xs);font-weight:500;
+  padding:2px var(--space-2);border-radius:9999px;
+  background:var(--color-primary-highlight);color:var(--color-primary)}
+.theme-toggle{width:36px;height:36px;border-radius:var(--radius-md);border:1px solid var(--color-border);
+  background:var(--color-surface);color:var(--color-text-muted);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  transition:all var(--transition-interactive)}
+.theme-toggle:hover{background:var(--color-surface-offset);color:var(--color-text)}
+
+/* ── MAIN ── */
+main{max-width:900px;margin:0 auto;padding:var(--space-12) var(--space-6)}
+.page-title{font-family:var(--font-display);font-size:var(--text-xl);
+  font-weight:400;color:var(--color-text);margin-bottom:var(--space-2);font-style:italic}
+.page-sub{font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-10)}
+
+/* ── FLOW ── */
+.flow{display:flex;flex-direction:column;align-items:center;gap:0;position:relative}
+
+/* Phase header */
+.phase-label{
+  font-size:var(--text-xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--color-text-faint);margin-bottom:var(--space-3);text-align:center;
+}
+
+/* Node */
+.node{
+  width:100%;max-width:520px;position:relative;
+  border-radius:var(--radius-xl);
+  border:1px solid var(--color-border);
+  background:var(--color-surface);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+  transition:box-shadow var(--transition-interactive),border-color var(--transition-interactive);
+}
+.node:hover{box-shadow:var(--shadow-md);border-color:var(--color-text-faint)}
+.node-inner{display:flex;align-items:flex-start;gap:var(--space-4);padding:var(--space-5) var(--space-5)}
+.node-icon{
+  width:40px;height:40px;border-radius:var(--radius-lg);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+  transition:transform var(--transition-interactive);
+}
+.node:hover .node-icon{transform:scale(1.05)}
+.node-body{flex:1;min-width:0}
+.node-title{font-size:var(--text-sm);font-weight:600;color:var(--color-text);margin-bottom:2px}
+.node-desc{font-size:var(--text-xs);color:var(--color-text-muted);line-height:1.5}
+.node-tag{
+  display:inline-block;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  padding:2px 8px;border-radius:9999px;margin-bottom:var(--space-2);
+}
+
+/* Connector */
+.connector{
+  display:flex;flex-direction:column;align-items:center;gap:0;
+  position:relative;z-index:1;
+}
+.connector-line{width:2px;background:var(--color-divider);flex:1;min-height:24px}
+.connector-dot{
+  width:8px;height:8px;border-radius:9999px;background:var(--color-text-faint);
+  border:2px solid var(--color-bg);flex-shrink:0;
+}
+.connector-label{
+  font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--color-text-faint);background:var(--color-bg);
+  padding:2px var(--space-2);border-radius:9999px;border:1px solid var(--color-divider);
+  margin:4px 0;white-space:nowrap;
+}
+
+/* Decision fork */
+.fork{
+  width:100%;max-width:520px;
+  display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);
+  position:relative;
+}
+.fork-label-row{
+  width:100%;max-width:520px;
+  display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);
+  margin-bottom:4px;
+}
+.fork-label{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  text-align:center;padding:2px 0}
+.fork-label.no{color:var(--color-error)}
+.fork-label.yes{color:var(--color-success)}
+.fork-node{
+  border-radius:var(--radius-lg);border:1px solid var(--color-border);
+  background:var(--color-surface);box-shadow:var(--shadow-sm);
+  padding:var(--space-4);text-align:center;
+  transition:box-shadow var(--transition-interactive),border-color var(--transition-interactive);
+}
+.fork-node:hover{box-shadow:var(--shadow-md)}
+.fork-node .node-icon{margin:0 auto var(--space-2);width:36px;height:36px}
+.fork-node .node-title{font-size:var(--text-xs);font-weight:600;color:var(--color-text)}
+.fork-node .node-desc{font-size:10px;color:var(--color-text-muted);margin-top:2px}
+
+/* Section divider */
+.section-divider{
+  width:100%;max-width:520px;
+  border-top:1px solid var(--color-divider);
+  margin:var(--space-8) 0;
+  position:relative;display:flex;align-items:center;justify-content:center;
+}
+.section-divider-text{
+  position:absolute;background:var(--color-bg);padding:0 var(--space-3);
+  font-size:var(--text-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--color-text-faint);
+}
+
+/* Colour helpers */
+.c-primary .node-icon{background:var(--color-primary-highlight);color:var(--color-primary)}
+.c-success .node-icon{background:var(--color-success-highlight);color:var(--color-success)}
+.c-error .node-icon{background:var(--color-error-highlight);color:var(--color-error)}
+.c-warning .node-icon{background:var(--color-warning-highlight);color:var(--color-warning)}
+.c-gold .node-icon{background:var(--color-gold-highlight);color:var(--color-gold)}
+.c-blue .node-icon{background:var(--color-blue-highlight);color:var(--color-blue)}
+.c-orange .node-icon{background:var(--color-orange-highlight);color:var(--color-orange)}
+
+.tag-primary{background:var(--color-primary-highlight);color:var(--color-primary)}
+.tag-success{background:var(--color-success-highlight);color:var(--color-success)}
+.tag-error{background:var(--color-error-highlight);color:var(--color-error)}
+.tag-gold{background:var(--color-gold-highlight);color:var(--color-gold)}
+.tag-blue{background:var(--color-blue-highlight);color:var(--color-blue)}
+.tag-warning{background:var(--color-warning-highlight);color:var(--color-warning)}
+
+/* Fork connector top bar */
+.fork-top{
+  width:100%;max-width:520px;
+  display:flex;justify-content:center;gap:0;
+  position:relative;height:24px;
+}
+.fork-top::before{
+  content:'';position:absolute;top:0;left:25%;right:25%;
+  height:2px;background:var(--color-divider);
+}
+.fork-top-left,.fork-top-right{
+  width:50%;height:100%;border-top:2px solid var(--color-divider);
+}
+.fork-top-left{border-right:none;border-left:none}
+.fork-top-right{border-left:none;border-right:none}
+
+/* Merge */
+.merge-connector{
+  width:100%;max-width:520px;display:flex;justify-content:center;
+  height:24px;position:relative;
+}
+.merge-connector::before{
+  content:'';position:absolute;bottom:0;left:25%;right:25%;
+  height:2px;background:var(--color-divider);
+}
+.merge-left,.merge-right{
+  width:50%;height:100%;border-bottom:2px solid var(--color-divider);
+}
+
+/* Chip row in node */
+.chip-row{display:flex;flex-wrap:wrap;gap:var(--space-1);margin-top:var(--space-2)}
+.chip{
+  font-size:10px;font-weight:500;padding:2px var(--space-2);border-radius:9999px;
+  border:1px solid var(--color-border);color:var(--color-text-muted);
+  background:var(--color-surface-offset);
+}
+
+/* Interview sub-list */
+.sub-list{margin-top:var(--space-2);display:flex;flex-direction:column;gap:4px}
+.sub-item{display:flex;align-items:center;gap:var(--space-2);font-size:10px;color:var(--color-text-muted)}
+.sub-dot{width:5px;height:5px;border-radius:9999px;background:var(--color-text-faint);flex-shrink:0}
+
+/* Scroll-driven reveal */
+@supports(animation-timeline:scroll()){
+  .node,.fork-node{
+    opacity:0;
+    animation:reveal-fade linear both;
+    animation-timeline:view();
+    animation-range:entry 0% entry 70%;
+  }
+  @keyframes reveal-fade{to{opacity:1}}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .node,.fork-node{animation:none;opacity:1}
+}
+
+@media(max-width:600px){
+  .header{padding:var(--space-3) var(--space-4)}
+  main{padding:var(--space-8) var(--space-4)}
+  .fork{grid-template-columns:1fr}
+  .fork-label-row{grid-template-columns:1fr}
+  .fork-top{display:none}
+  .merge-connector{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">
+    <svg viewBox="0 0 32 32" fill="none" aria-label="Speed logo">
+      <rect width="32" height="32" rx="8" fill="var(--color-primary)"/>
+      <path d="M8 20L14 12L18 17L22 10" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="22" cy="10" r="2" fill="white"/>
+    </svg>
+    <div>
+      <div class="logo-text">Speed</div>
+      <div class="logo-sub">Internal Tool</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <span class="badge">Recruitment Workflow</span>
+    <button class="theme-toggle" data-theme-toggle aria-label="Toggle theme">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main>
+  <p class="page-title">Recruitment Workflow</p>
+  <p class="page-sub">Speed × TeamOps integration — candidate lifecycle from application to onboarding</p>
+
+  <div class="flow">
+
+    <!-- ─── PHASE 1: APPLICATION ─── -->
+    <div class="phase-label">Phase 1 — Application</div>
+
+    <div class="node c-primary">
+      <div class="node-inner">
+        <div class="node-icon">🌐</div>
+        <div class="node-body">
+          <span class="node-tag tag-primary">Trigger</span>
+          <div class="node-title">Candidate applies via j.cx/jobs</div>
+          <div class="node-desc">Form submission fires a webhook to Speed. Candidate data (name, email, role, CV) is captured and validated.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="connector">
+      <div class="connector-line" style="min-height:20px"></div>
+      <div class="connector-dot"></div>
+      <div class="connector-label">Auto-add to TeamOps</div>
+      <div class="connector-dot"></div>
+      <div class="connector-line" style="min-height:20px"></div>
+    </div>
+
+    <div class="node c-blue">
+      <div class="node-inner">
+        <div class="node-icon">🗂️</div>
+        <div class="node-body">
+          <span class="node-tag tag-blue">TeamOps</span>
+          <div class="node-title">Candidate added to Talent Pool</div>
+          <div class="node-desc">Profile created in TeamOps with stage set to <strong>Applied</strong>. Deduplication check runs on email.</div>
+          <div class="chip-row">
+            <span class="chip">Stage: Applied</span>
+            <span class="chip">Source: j.cx/jobs</span>
+            <span class="chip">Auto-timestamp</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="connector"><div class="connector-line" style="min-height:32px"></div></div>
+
+    <!-- ─── PHASE 2: SCREENING ─── -->
+    <div class="section-divider"><span class="section-divider-text">Phase 2 — Screening</span></div>
+
+    <div class="node c-warning">
+      <div class="node-inner">
+        <div class="node-icon">🔎</div>
+        <div class="node-body">
+          <span class="node-tag tag-warning">Review</span>
+          <div class="node-title">HR Screening</div>
+          <div class="node-desc">Recruiter reviews application in TeamOps. Candidate stage moves to <strong>Screening</strong>. Decision required.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fork-top">
+      <div class="fork-top-left"></div>
+      <div class="fork-top-right"></div>
+    </div>
+
+    <div class="fork-label-row">
+      <div class="fork-label no">✕ Not a Fit</div>
+      <div class="fork-label yes">✓ Good Fit</div>
+    </div>
+
+    <div class="fork">
+      <div class="fork-node c-error">
+        <div class="node-icon">📧</div>
+        <div class="node-title">Send Rejection Email</div>
+        <div class="node-desc">"Not Fit" template sent via TeamOps. Stage → Rejected.</div>
+      </div>
+      <div class="fork-node c-success">
+        <div class="node-icon">📅</div>
+        <div class="node-title">Send Calendar Invite</div>
+        <div class="node-desc">Interview invite sent. Stage → Interview Scheduled.</div>
+      </div>
+    </div>
+
+    <div class="connector"><div class="connector-line" style="min-height:32px"></div></div>
+
+    <!-- ─── PHASE 3: INTERVIEW ─── -->
+    <div class="section-divider"><span class="section-divider-text">Phase 3 — Interview</span></div>
+
+    <div class="node c-gold">
+      <div class="node-inner">
+        <div class="node-icon">🎤</div>
+        <div class="node-body">
+          <span class="node-tag tag-gold">Interview</span>
+          <div class="node-title">Conduct Interviews & Assessment</div>
+          <div class="node-desc">One or more rounds of interviews or calls. Recordings and notes captured.</div>
+          <div class="sub-list">
+            <div class="sub-item"><span class="sub-dot"></span>Multiple rounds / calls conducted</div>
+            <div class="sub-item"><span class="sub-dot"></span>Interviews recorded in Speed</div>
+            <div class="sub-item"><span class="sub-dot"></span>Overall assessment generated</div>
+          </div>
+          <div class="chip-row">
+            <span class="chip">Stage: Interviewing</span>
+            <span class="chip">Recordings attached</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fork-top">
+      <div class="fork-top-left"></div>
+      <div class="fork-top-right"></div>
+    </div>
+
+    <div class="fork-label-row">
+      <div class="fork-label no">✕ Not a Fit</div>
+      <div class="fork-label yes">✓ Good Fit</div>
+    </div>
+
+    <div class="fork">
+      <div class="fork-node c-error">
+        <div class="node-icon">📧</div>
+        <div class="node-title">Send Rejection Email</div>
+        <div class="node-desc">"Not Fit" template sent. Stage → Rejected.</div>
+      </div>
+      <div class="fork-node c-success">
+        <div class="node-icon">📝</div>
+        <div class="node-title">Generate & Send Offer Letter</div>
+        <div class="node-desc">Offer letter generated and sent directly via TeamOps. Stage → Offer Extended.</div>
+      </div>
+    </div>
+
+    <div class="connector"><div class="connector-line" style="min-height:32px"></div></div>
+
+    <!-- ─── PHASE 4: HIRED ─── -->
+    <div class="section-divider"><span class="section-divider-text">Phase 4 — Hired & Onboarding</span></div>
+
+    <div class="node c-success">
+      <div class="node-inner">
+        <div class="node-icon">✅</div>
+        <div class="node-body">
+          <span class="node-tag tag-success">Hired</span>
+          <div class="node-title">Offer Letter Signed → Status: Hired</div>
+          <div class="node-desc">Once the candidate signs the offer, TeamOps status is automatically updated to <strong>Hired</strong>. Onboarding is triggered.</div>
+          <div class="chip-row">
+            <span class="chip">Stage: Hired</span>
+            <span class="chip">Onboarding triggered</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="connector">
+      <div class="connector-line" style="min-height:20px"></div>
+      <div class="connector-dot"></div>
+      <div class="connector-label">Onboarding sequence</div>
+      <div class="connector-dot"></div>
+      <div class="connector-line" style="min-height:20px"></div>
+    </div>
+
+    <div class="node c-primary" style="margin-bottom:0">
+      <div class="node-inner">
+        <div class="node-icon">🚀</div>
+        <div class="node-body">
+          <span class="node-tag tag-primary">Onboarding</span>
+          <div class="node-title">Create Company Email & Speed Account</div>
+          <div class="node-desc">Company email address is created. Speed account credentials are provisioned and sent to the new hire.</div>
+          <div class="sub-list">
+            <div class="sub-item"><span class="sub-dot"></span>Company email address created</div>
+            <div class="sub-item"><span class="sub-dot"></span>Speed account credentials generated</div>
+            <div class="sub-item"><span class="sub-dot"></span>Welcome credentials delivered to new hire</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /flow -->
+</main>
+
+<script>
+(function(){
+  const t=document.querySelector('[data-theme-toggle]');
+  const r=document.documentElement;
+  let d=r.getAttribute('data-theme')||'dark';
+  function setTheme(theme){
+    d=theme;r.setAttribute('data-theme',d);
+    if(t)t.innerHTML=d==='dark'
+      ?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+      :'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  }
+  setTheme(d);
+  if(t)t.addEventListener('click',()=>setTheme(d==='dark'?'light':'dark'));
+})();
+</script>
+</body>
+</html>
